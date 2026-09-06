@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -10,6 +10,9 @@ class IssueCreate(BaseModel):
 
 
 class IssueUpdate(BaseModel):
-    title: Optional[str] = None
+    title: Optional[str] = Field(default=None, min_length=1)
     body: Optional[str] = None
-    state: Optional[str] = None
+    state: Optional[Literal["open", "closed"]] = None
+
+class CommentCreate(BaseModel):
+    body: str = Field(..., min_length=1)

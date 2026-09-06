@@ -120,3 +120,60 @@ async def get_issue(number: int):
     handle_github_error(response)
 
     return response.json()
+
+async def update_issue(
+    number: int,
+    title: str | None = None,
+    body: str | None = None,
+    state: str | None = None,
+):
+    url = (
+        f"{GITHUB_API}/repos/"
+        f"{GITHUB_OWNER}/{GITHUB_REPO}/issues/{number}"
+    )
+
+    payload = {}
+
+    if title is not None:
+        payload["title"] = title
+
+    if body is not None:
+        payload["body"] = body
+
+    if state is not None:
+        payload["state"] = state
+
+    async with httpx.AsyncClient() as client:
+        response = await client.patch(
+            url,
+            headers=get_headers(),
+            json=payload,
+        )
+
+    handle_github_error(response)
+
+    return response.json()
+
+async def create_comment(
+    number: int,
+    body: str,
+):
+    url = (
+        f"{GITHUB_API}/repos/"
+        f"{GITHUB_OWNER}/{GITHUB_REPO}/issues/{number}/comments"
+    )
+
+    payload = {
+        "body": body
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            url,
+            headers=get_headers(),
+            json=payload,
+        )
+
+    handle_github_error(response)
+
+    return response.json()
