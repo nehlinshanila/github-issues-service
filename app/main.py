@@ -1,11 +1,11 @@
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Query, Response
 
 load_dotenv()
 
-from app.github_client import create_issue
+from app.github_client import create_issue, get_issue, list_issues
 from app.models import IssueCreate
 
 app = FastAPI(
@@ -15,39 +15,91 @@ app = FastAPI(
 )
 
 
+def format_issue(issue):
+    return {
+        "number": issue["number"],
+        "html_url": issue["html_url"],
+        "state": issue["state"],
+        "title": issue["title"],
+        "body": issue["body"],
+        "labels": [
+            label["name"]
+            for label in issue.get("labels", [])
+        ],
+        "created_at": issue["created_at"],
+        "updated_at": issue["updated_at"],
+    }
+
+
 @app.get("/")
 async def root():
-    return {"message": "GitHub Issues Service is running"}
+    return {
+        "message": "GitHub Issues Service is running"
+    }
 
 
 @app.get("/healthz")
 async def health_check():
-    return {"status": "ok"}
+    return {
+        "status": "ok"
+    }
 
 
 @app.post("/issues", status_code=201)
-async def post_issue(issue: IssueCreate, response: Response):
+async def post_issue(
+    issue: IssueCreate,
+    response: Response,
+):
     github_issue = await create_issue(
         title=issue.title,
         body=issue.body,
         labels=issue.labels,
     )
 
-    response.headers["Location"] = f"/issues/{github_issue['number']}"
+    response.headers["Location"] = (
+        f"/issues/{github_issue['number']}"
+    )
 
-    return {
-        "number": github_issue["number"],
-        "html_url": github_issue["html_url"],
-        "state": github_issue["state"],
-        "title": github_issue["title"],
-        "body": github_issue["body"],
-        "labels": [
-            label["name"]
-            for label in github_issue.get("labels", [])
-        ],
-        "created_at": github_issue["created_at"],
-        "updated_at": github_issue["updated_at"],
-    }
+    return format_issue(github_issue)
+
+
+@app.get("/issues")
+async def get_issues(
+    response: Response,
+    state: str = Query(
+        default="open",
+        pattern="^(open|closed|all)$",
+    ),
+    labels: str | None = None,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(
+        default=30,
+        ge=1,
+        le=100,
+    ),
+):
+    issues, link_header = await list_issues(
+        state=state,
+        labels=labels,
+        page=page,
+        per_page=per_page,
+    )
+
+    if link_header:
+        response.headers["Link"] = link_header
+
+    return [
+        format_issue(issue)
+        for issue in issues
+        if "pull_request" not in issue
+    ]
+
+
+@app.get("/issues/{number}")
+async def get_single_issue(number: int):
+    issue = await get_issue(number)
+
+    return format_issue(issue)
 
 
 if __name__ == "__main__":
