@@ -2,6 +2,9 @@ import json
 import os
 from datetime import datetime, timezone
 
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
 
@@ -23,7 +26,18 @@ app = FastAPI(
     description="A REST service wrapping the GitHub Issues API.",
     version="1.0.0",
 )
-
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError,
+):
+    return JSONResponse(
+        status_code=400,
+        content={
+            "detail": "Invalid request.",
+            "errors": exc.errors(),
+        },
+    )
 
 @app.on_event("startup")
 def startup_event():
